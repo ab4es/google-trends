@@ -34,9 +34,32 @@ def readGoogleTrendsCSV(trend):
 
 def readAssetReturnsCSV(asset):
     df = pandas.read_csv('../../Daily/' + asset + '.csv')
+    df['Index'] = pandas.to_datetime(df['Index']) # convert dates to Datetime objects
+    df = df.set_index('Index') # set Index
+    # df = pandas.concat([df[df.index.weekday == 0], df[df.index.weekday == 4]]) # only keep Mondays and Fridays
+    df = df.sort_index() # sort by date
+
+    df_calcs = pandas.DataFrame
+
     print(df)
-    df['Date'] = pandas.to_datetime(df['Date']) # convert dates to Datetime objects
-    #df = df.sort_values(by = 'Date', ascending = True) # sort by Date to correctly calculate pct_change()
+
+    # compute returns only across full trading weeks (Monday -> Friday)
+    for index, row in df.iterrows():
+         date = pandas.to_datetime(index)
+         if date.weekday() == 0: # is Monday
+             tues = date + datetime.timedelta(days=1)
+             wed = date + datetime.timedelta(days=2)
+             thur = date + datetime.timedelta(days=3)
+             fri = date + datetime.timedelta(days=4)
+             if tues in df.index and wed in df.index and thur in df.index and fri in df.index: # trading occurred on corresponding Friday
+                # print(date, '->', fri)
+                # print(index, "\n", row)
+                # print("\n\n\n")
+                df_tmp = pandas.DataFrame(data=row)
+                df_calcs.append(df_tmp)
+
+    print(df_calcs)
+
     #df['Returns'] = df['Adj Close'].pct_change() # calculate returns
     #df['Std Returns'] = (df['Returns'] - df['Returns'].mean()) / df['Returns'].std() # standardize returns
 
