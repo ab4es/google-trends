@@ -6,6 +6,7 @@ import Asset
 import plotly.plotly as py
 from plotly.tools import FigureFactory as FF
 import pandas
+import numpy as np
 
 def readGoogleTrendsCSV(trend):
     printer = pprint.PrettyPrinter()
@@ -36,40 +37,61 @@ def readAssetReturnsCSV(asset):
     df = pandas.read_csv('../../Daily/' + asset + '.csv')
     df['Index'] = pandas.to_datetime(df['Index']) # convert dates to Datetime objects
     df = df.set_index('Index') # set Index
-    # df = pandas.concat([df[df.index.weekday == 0], df[df.index.weekday == 4]]) # only keep Mondays and Fridays
     df = df.sort_index() # sort by date
 
-    df_calcs = pandas.DataFrame
+    # Will store the weekly data
+    df_calcs = pandas.DataFrame(columns=['period_ended', 'open', 'high', 'low', 'close', 'volume',
+                                         'adj.', 'weekly_return'])
 
-    print(df)
-
-    # compute returns only across full trading weeks (Monday -> Friday)
+    # compute weekly returns only across full trading weeks (Monday -> Friday)
     for index, row in df.iterrows():
          date = pandas.to_datetime(index)
-         if date.weekday() == 0: # is Monday
-             tues = date + datetime.timedelta(days=1)
-             wed = date + datetime.timedelta(days=2)
-             thur = date + datetime.timedelta(days=3)
-             fri = date + datetime.timedelta(days=4)
-             if tues in df.index and wed in df.index and thur in df.index and fri in df.index: # trading occurred on corresponding Friday
-                # print(date, '->', fri)
-                # print(index, "\n", row)
-                # print("\n\n\n")
-                df_tmp = pandas.DataFrame(data=row)
-                df_calcs.append(df_tmp)
+         if date.weekday() == 4: # is Friday
+             thur = date + datetime.timedelta(days=-1)
+             wed = date + datetime.timedelta(days=-2)
+             tues = date + datetime.timedelta(days=-3)
+             mon = date + datetime.timedelta(days=-4)
+             # trading occurred on corresponding Friday
+             if thur in df.index and wed in df.index and tues in df.index and mon in df.index:
+                 period_ended = date
+                 open = df.loc[mon]['open']
+                 close = row['close']
+                 low = min(df.loc[mon]['low'], df.loc[tues]['low'], df.loc[wed]['low'], df.loc[thur]['low'],
+                           row['close'])
+                 high = max(df.loc[mon]['high'], df.loc[tues]['high'], df.loc[wed]['high'], df.loc[thur]['high'],
+                           row['high'])
+                 volume = df.loc[mon]['volume'] + df.loc[tues]['volume'] + df.loc[wed]['volume'] + \
+                          df.loc[thur]['volume'] + row['volume']
+                 adj = row['adj.']
+                 weekly_return = (row['adj.'] - df.loc[mon]['adj.']) / df.loc[mon]['adj.']
+                 #print(mon, '(', df.loc[mon]['adj.'], ') ->', date, '(', row['adj.'], '):', weekly_return*100, '%')
+                 week = pandas.Series([period_ended, open, high, low, close, volume, adj, weekly_return])
+                 week = week.rename({0: 'period_ended', 1: 'open', 2: 'high', 3: 'low', 4: 'close', 5: 'volume',
+                                     6: 'adj.', 7: 'weekly_return'})
+                 df_calcs = df_calcs.append(week, ignore_index=True)
+    df_calcs = df_calcs.set_index('period_ended') # set index to period_ended
 
-    print(df_calcs)
+    print(df_calcs, '\n')
 
-    #df['Returns'] = df['Adj Close'].pct_change() # calculate returns
-    #df['Std Returns'] = (df['Returns'] - df['Returns'].mean()) / df['Returns'].std() # standardize returns
+    # standardize weekly returns
+    df_calcs['std_return'] = (df_calcs['weekly_return'] - df_calcs['weekly_return'].mean()) / \
+                             df_calcs['weekly_return'].std()
 
-    #ohlc = FF.create_ohlc(df.Open, df.High, df.Low, df.Close, dates = df.Date) # save OHLC data
+    print(df_calcs, '\n')
 
-    #return Asset.Asset(asset, df, ohlc)
+    # save OHLC data
+    ohlc = FF.create_ohlc(df_calcs.open, df_calcs.high, df_calcs.low, df_calcs.close, dates=df_calcs.index)
 
-    # TO-DO: import daily tick data and calculate weekly returns (Monday - Friday)
+    return Asset.Asset(asset, df, ohlc)
 
 
 ###########################################################################
+# df = pandas.DataFrame(np.random.randn(8, 4), columns=['A','B','C','D'])
+# print(df)
+# s = df.iloc[3]
+# print(s)
+# print(df.append(s, ignore_index=True))
+
+
 #readGoogleTrendsCSV("report")
 readAssetReturnsCSV("^GSPC")
