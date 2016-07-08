@@ -71,27 +71,17 @@ def readAssetReturnsCSV(asset):
                  df_calcs = df_calcs.append(week, ignore_index=True)
     df_calcs = df_calcs.set_index('period_ended') # set index to period_ended
 
-    print(df_calcs, '\n')
-
     # standardize weekly returns
     df_calcs['std_return'] = (df_calcs['weekly_return'] - df_calcs['weekly_return'].mean()) / \
                              df_calcs['weekly_return'].std()
 
-    print(df_calcs, '\n')
-
     # save OHLC data
     ohlc = FF.create_ohlc(df_calcs.open, df_calcs.high, df_calcs.low, df_calcs.close, dates=df_calcs.index)
 
-    return Asset.Asset(asset, df, ohlc)
+    return Asset.Asset(asset, df_calcs, ohlc)
 
 
 ###########################################################################
-# df = pandas.DataFrame(np.random.randn(8, 4), columns=['A','B','C','D'])
-# print(df)
-# s = df.iloc[3]
-# print(s)
-# print(df.append(s, ignore_index=True))
-
 
 #readGoogleTrendsCSV("report")
 readAssetReturnsCSV("^GSPC")
